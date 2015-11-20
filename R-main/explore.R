@@ -7,6 +7,8 @@ library(GGally)
 
 
 #### read in vcf file ####
+# Download vcf from Google Drive and put it in inst/extdata/
+
 # Decompress vcf file for reading into R
 system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
 
