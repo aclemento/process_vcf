@@ -5,3 +5,4 @@
 *~
 output/
 R-main/gsi-funcs.R
+inst/extdata/smar_freebayes*

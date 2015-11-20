@@ -7,6 +7,9 @@ library(GGally)
 
 
 #### read in vcf file ####
+# Decompress vcf file for reading into R
+system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
+
 # find header line of vcf file then read it in
 x <- readLines("inst/extdata/smar_freebayes.vcf", n = 1000)
 header_line <- min(which(str_detect(x, "#CHROM")))
