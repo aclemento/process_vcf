@@ -5,6 +5,7 @@ library(ggplot2)
 library(tidyr)
 library(GGally)
 
+setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 
 #### read in vcf file ####
 # Download vcf from Google Drive and put it in inst/extdata/
@@ -13,9 +14,11 @@ library(GGally)
 system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
 
 # find header line of vcf file then read it in
-x <- readLines("inst/extdata/smar_freebayes.vcf", n = 1000)
+x <- readLines("inst/extdata/satro6_vanillaFB.vcf", n = 1000)
+#x <- readLines("output/satro6_vanillaFB.vcf", n = 1000)
 header_line <- min(which(str_detect(x, "#CHROM")))
-vcf <- read_tsv("inst/extdata/smar_filtered.vcf", skip = header_line - 1) %>%
+vcf <- read_tsv("inst/extdata/satro6_vanillaFB.vcf", skip = header_line - 1) %>%
+#vcf <- read_tsv("output/smar_filtered_ns32_ac8.vcf", skip = header_line - 1) %>%
   tbl_df
 names(vcf)[1] <- "CHROM"
 
@@ -38,6 +41,8 @@ tmp <- cpi %>%
   separate(INFO, sep = ";", into = info_names) %>% 
   gather(key = "info_field", value = "info_value", -CHROM, -POS) %>%
   mutate(info_value = str_replace(info_value, "^.*=", "")) 
+# This is the fully melted INFO fields and a good place to summarize TYPE
+filter(tmp, info_field=="TYPE") %>% group_by(info_value) %>% summarise(count = n()) %>% View()
 
 
 strs <- tmp %>%

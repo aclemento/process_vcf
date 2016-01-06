@@ -4,19 +4,24 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 
+setwd("~/Genetics_Lab_Data/ddRAD/marbletrout_nonegFIS/process_vcf")
+
 #### Filtering the vcf and outputting genotypes ####
 
 # Filter the vcf file
-system('/usr/local/bin/vcflib/vcffilter -f "TYPE = snp & MQM > 30 & MQMR > 30 & NS > 15 & AC > 1 & DP > 499 & DP < 10000" inst/extdata/smar_freebayes.vcf > output/smar_filtered.vcf')
+system('/usr/local/bin/vcflib/vcffilter -f "TYPE = snp & MQM > 30 & MQMR > 30 & NS > 31 & AC > 7 & DP > 499 & DP < 10000" inst/extdata/smar_freebayes.vcf > output/smar_filtered_ns32_ac8.vcf')
+system('/usr/local/bin/vcflib/vcffilter -f "NS > 32" smarmo.vcf > smarmo_py_filtered_32.vcf')
 
 # Export plink ped and map
-system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered.vcf --out output/smar_plink --plink')
+system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered_16.vcf --out output/smar_all_plink_16 --plink')
 
 
 
 ## GENEPOP ##
 # Dump the genotypes out in 0, 1, 2 format
-system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered.vcf --out output/smar --012')
+#system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered_60.vcf --out output/smar --012')
+system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered_ns32_ac8.vcf --out output/smar --positions output/white_1snp_ns32_ac8.txt --012')
+system('/usr/local/bin/vcftools/vcftools --vcf smarmo.vcf --out output/smar --012')
 
 # get the indivs
 gsIndivs <- scan("output/smar.012.indv", what = "character")
@@ -35,7 +40,7 @@ names(alles) <- c("0", "1", "2", "-1")
 genos <- alles[scan("output/smar.012", what = "character")] %>% 
   matrix(., nrow = N, byrow = TRUE)  
 
-rownames(genos) <- gsIndivs
+rownames(genos) <- paste(gsIndivs, ",", sep=" ")
 genos <- genos[,-1]  # note that we tear off the column that gives the index of each individual
 
 # now we need to sort the rows so that populations are together in case they arent already grouped
@@ -46,12 +51,12 @@ genos <- genos[order(rownames(genos)),]
 # Note that this is specific to the naming format with 4 characters (i.e. huda01)
 pops <- str_sub(rownames(genos), 1, 4)
 firsties <- c(1, 1 + which(diff(as.numeric(factor(pops))) != 0))
-rownames(genos)[firsties] <- paste("POP ", "\n", rownames(genos)[firsties], sep = "", " , ")
+rownames(genos)[firsties] <- paste("POP", "\n", rownames(genos)[firsties], sep = "")
 
 # then we just spooge out the preamble and the genotypes.
-cat("Title line:\"smar_all_GP2.txt\"", "\n", sep = "", file = "output/smar_all_GP2.txt")
-cat(gsMarkers, sep = "\n", file = "output/smar_all_GP2.txt", append = TRUE)
-write.table(genos, col.names = FALSE, quote = FALSE, sep = " ", file = "output/smar_all_GP2.txt", append = TRUE)
+cat("Title line:\"smar_pymap_ns32_ac8_1snp.genepop\"", "\n", sep = "", file = "output/smar_pymap_ns32_ac8_1snp.genepop")
+cat(gsMarkers, sep = "\n", file = "output/smar_pymap_ns32_ac8_1snp.genepop", append = TRUE)
+write.table(genos, col.names = FALSE, quote = FALSE, sep = " ", file = "output/smar_pymap_ns32_ac8_1snp.genepop", append = TRUE)
 
 
 
@@ -67,9 +72,8 @@ genos <- alles[scan("output/smar.012", what = "character")] %>%
 rownames(genos) <- gsIndivs
 genos <- genos[,-1]  # note that we tear off the column that gives the index of each individual
 
-# We also need a header for our two-column format with the locus name duplicated (i.e. loc loc.1)
+# We also need a header for our two-column format with the locus name duplicated (i.e. loc1 loc1)
 # First create another version of gsMarkers **Not necessary here**
-#gsMarkers.1 <- paste(gsMarkers, "1", sep=".")
 
 # We will pilfer a function for interleaving
 interleave <- function(v1,v2)
@@ -87,10 +91,12 @@ twocolMarkers <- interleave(gsMarkers,gsMarkers)
 genos <- genos[order(rownames(genos)),]
 
 # then we just spooge out the locus list and the genotypes.
-cat("IDs", twocolMarkers, "\n", sep = "\t", file = "output/smar_all_TK.txt")
-#cat(gsMarkers, sep = "\n", file = "output/smar_all_GP2.txt", append = TRUE)
-write.table(genos, col.names = FALSE, quote = FALSE, sep = "\t", file = "output/smar_all_TK.txt", append = TRUE)
+cat("IDs", twocolMarkers, "\n", sep = "\t", file = "output/smar_pymap_ns32_ac8_1snp_TK.txt")
+write.table(genos, col.names = FALSE, quote = FALSE, sep = "\t", file = "output/smar_pymap_ns32_ac8_1snp_TK.txt", append = TRUE)
 
 
 
 ## We would also like a dataset with only 1 SNP per locus
+cp <- vcf %>% select(CHROM, POS)
+one <- cp %>% group_by(CHROM) %>% sample_n(., 1)
+write.table(one, file="output/onesnp_ns32_ac8.txt", quote=F, row.names=F, col.names=F, sep="\t")

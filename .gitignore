@@ -5,4 +5,5 @@
 *~
 output/
 R-main/gsi-funcs.R
-inst/extdata/smar_freebayes*
+inst/extdata/*.vcf
+inst/idxdata/
