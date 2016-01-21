@@ -14,10 +14,10 @@ setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
 
 # find header line of vcf file then read it in
-x <- readLines("inst/extdata/satro6_vanillaFB.vcf", n = 1000)
-#x <- readLines("output/satro6_vanillaFB.vcf", n = 1000)
+#x <- readLines("inst/extdata/satro6_filter_QUAL20_AF02_TYPEsnp.vcf", n = 1000)
+x <- readLines("inst/extdata/satro6_noNs_noMNP_noComplex.vcf", n = 1000)
 header_line <- min(which(str_detect(x, "#CHROM")))
-vcf <- read_tsv("inst/extdata/satro6_vanillaFB.vcf", skip = header_line - 1) %>%
+vcf <- read_tsv("inst/extdata/satro6_noNs_noMNP_noComplex.vcf", skip = header_line - 1) %>%
 #vcf <- read_tsv("output/smar_filtered_ns32_ac8.vcf", skip = header_line - 1) %>%
   tbl_df
 names(vcf)[1] <- "CHROM"
@@ -43,13 +43,13 @@ tmp <- cpi %>%
   mutate(info_value = str_replace(info_value, "^.*=", "")) 
 # This is the fully melted INFO fields and a good place to summarize TYPE
 filter(tmp, info_field=="TYPE") %>% group_by(info_value) %>% summarise(count = n()) %>% View()
+filter(tmp, info_field=="TYPE") %>% group_by(info_value) %>% View()
 
-
-strs <- tmp %>%
+qstrs <- tmp %>%
   filter(info_field %in% c("TYPE", "CIGAR")) %>%
-  unite(CHROMPOS, CHROM, POS) %>%
+  unite(CHROMPOS, CHROM, POS, sep =":") %>%
   spread(info_field, info_value) %>%
-  separate(CHROMPOS, c("CHROM", "POS"), sep = "_", convert = TRUE)
+  separate(CHROMPOS, c("CHROM", "POS"), sep = ":", convert = TRUE)
 
 
 nums <- tmp %>%
@@ -57,7 +57,7 @@ nums <- tmp %>%
   mutate(info_numeric = as.numeric(info_value))
 
 
-togeth <- left_join(nums, strs)
+togeth <- left_join(nums, qstrs)
 
 
 clean <- togeth %>%
@@ -101,7 +101,7 @@ inty_wide %>% filter(status == "keep") %>%
 
 inty_wide %>% filter(status == "keep") %>%
   select(CHROM) %>%
-  unique() %>%q
+  unique() %>%
   nrow()
 
 
