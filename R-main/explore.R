@@ -123,8 +123,8 @@ grid.arrange(a, b, c, d, ncol=2)
 ####Calculate HWE####
 
 
-# Call vcftools
-system("/usr/local/bin/vcftools/vcftools --vcf inst/extdata/satro_144_filtered.vcf --hardy --out satro_144_filtered")
+##Call vcftools##
+system("/usr/local/bin/vcftools --vcf inst/extdata/satro_144_filtered.vcf --hardy --max-missing 0.5 --out intermediates/satro_144_filtered2")
 
 ## A function to read vcf hardy output and put it into usable long format ##
 long_hardy <- function(file) {
@@ -158,7 +158,7 @@ long_hardy <- function(file) {
   
 }
 
-hwe <- long_hardy("satro_144_filtered.hwe")
+hwe <- long_hardy("intermediates/satro_144_filtered2.hwe")
 
 # Let's see how close we are to equilibrium overall
 hwplot <- ggplot(hwe$cnts, aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
@@ -166,3 +166,23 @@ hwplot <- ggplot(hwe$cnts, aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
   geom_abline(intercept = 0, slope = 1)
 
 hwplot  
+
+##Call plink##
+# It appears that vcftools has a bug that prevents HWE being calculated for loci with any missing data
+# vcftools also strips out triallelic snps - fortunately there are only three
+
+system("/usr/local/bin/vcftools --vcf inst/extdata/")
+system("/usr/local/bin/plink --noweb --file intermedaiates/satro_144 --hardy")
+
+hwplink <- read.table(file="intermediates/plink.hwe", stringsAsFactors=F, header=T, sep="") %>% 
+  tbl_df() %>% 
+  select(-CHR) %>%
+  filter(., TEST=="ALL") %>%
+  mutate(status = ifelse(P < 0.0001, "toss", "keep"))
+
+hwplplot <- ggplot(hwplink, aes(x = E.HET., y = O.HET., colour = status)) +
+  geom_jitter(alpha = 0.75, size=5) +
+  geom_abline(intercept = 0, slope = 1)
+
+hwplplot  
+
