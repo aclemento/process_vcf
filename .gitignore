@@ -7,3 +7,4 @@ output/
 R-main/gsi-funcs.R
 inst/extdata/*.vcf
 inst/idxdata/
+intermediates/

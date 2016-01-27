@@ -16,7 +16,7 @@ system('/usr/local/bin/vcflib/vcffilter -f "NS > 32" smarmo.vcf > smarmo_py_filt
 system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered_16.vcf --out output/smar_all_plink_16 --plink')
 
 
-
+ 
 ## GENEPOP ##
 # Dump the genotypes out in 0, 1, 2 format
 #system('/usr/local/bin/vcftools/vcftools --vcf output/smar_filtered_60.vcf --out output/smar --012')
