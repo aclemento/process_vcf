@@ -10,18 +10,21 @@ setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 
 #### read in vcf file ####
 
-
 # Download vcf from Google Drive and put it in inst/extdata/
 
 # Decompress vcf file for reading into R
-system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
+#system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
+
+# Filter vcf with vcftools
+
+
+# Create a variable that is the relative path to infile 
+infile <- "inst/extdata/satro_144_for_filtering.vcf"
 
 # find header line of vcf file then read it in
-#x <- readLines("inst/extdata/satro6_filter_QUAL20_AF02_TYPEsnp.vcf", n = 1000)
-x <- readLines("inst/extdata/satro_144_noMNP_noComplex.vcf", n = 1000)
+x <- readLines(infile, n = 1000)
 header_line <- min(which(str_detect(x, "#CHROM")))
-vcf <- read_tsv("inst/extdata/satro_144_noMNP_noComplex.vcf", skip = header_line - 1) %>%
-#vcf <- read_tsv("output/smar_filtered_ns32_ac8.vcf", skip = header_line - 1) %>%
+vcf <- read_tsv(infile, skip = header_line - 1) %>%
   tbl_df
 names(vcf)[1] <- "CHROM"
 
@@ -59,20 +62,70 @@ nums <- tmp %>%
 
 togeth <- left_join(nums, qstrs)
 
-clean <- togeth %>%
-  filter(TYPE == "snp")
+#clean <- togeth %>%
+#  filter(TYPE == "snp")
 
 # plot all fields
-g <- ggplot(clean, aes(x = info_numeric)) +
+g <- ggplot(togeth, aes(x = info_numeric)) +
   geom_histogram(colour = "blue") +
   facet_wrap(~ info_field, ncol = 7, scales = "free") 
 g
 
 ggsave(g, filename = "histo_matrix.pdf", width = 20, height = 18)
 
-# plot a single field
-ggplot(filter(clean, info_field == "DP"), aes(x = info_numeric)) +
-  geom_histogram(binwidth = 100, colour = "blue") + xlim(0,25000)
+# plot a single field - xlim and binwidth need to be adjusted depending on the field
+ggplot(filter(togeth, info_field == "AB"), aes(x = info_numeric)) +
+  geom_histogram(binwidth = 0.01, colour = "blue") + xlim(0,1)
+
+####Calculate HWE####
+
+##Call vcftools##
+
+outfile <- "intermediates/satro_144"
+system(paste('/usr/local/bin/vcftools --vcf', infile, '--hardy --out', outfile))
+
+## A function to read vcf hardy output and put it into usable long format ##
+long_hardy <- function(file) {
+  x <- read.table(file, sep ="\t", header = TRUE, stringsAsFactors = FALSE) %>%
+    tbl_df %>%
+    separate(OBS.HOM1.HET.HOM2., c("obs_Hom1", "obs_Het", "obs_Hom2"), sep ="/") %>%
+    separate(E.HOM1.HET.HOM2., c("exp_Hom1", "exp_Het", "exp_Hom2"), sep ="/")
+  
+  # now put it into long format
+  obs <- x %>% select(CHR, POS, P_HWE, starts_with("obs_")) %>%
+    gather(., obs_var, obs_cnt, starts_with("obs_")) %>%
+    mutate(geno = str_replace(obs_var, "^obs_", "")) %>%
+    mutate(obs_cnt = as.numeric(obs_cnt)) %>%
+    select(-obs_var)
+  
+  # now add the total number of observed individuals in there
+  ntot <- obs %>% group_by(CHR, POS) %>% summarise(nindiv = sum(obs_cnt))
+  
+  exp <- x %>% select(CHR, POS, starts_with("exp_")) %>%
+    gather(., exp_var, exp_cnt, starts_with("exp_")) %>%
+    mutate(geno = str_replace(exp_var, "^exp_", "")) %>%
+    mutate(exp_cnt = as.numeric(exp_cnt)) %>%
+    select(-exp_var)
+  
+  cnts <- inner_join(obs, exp) %>%
+    mutate(geno = factor(geno, levels = c("Hom1", "Het", "Hom2"))) %>%
+    inner_join(., ntot)
+  
+  list(cnts = cnts, p_etc = inner_join(x, ntot))
+  
+}
+
+hwe <- long_hardy(paste(outfile, 'hwe', sep="."))
+
+# Let's see how close we are to equilibrium overall
+# Adding a HW p-value filter
+pval <- 0.00001
+
+hwplot <- ggplot(filter(hwe$cnts, P_HWE<pval), aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
+  geom_jitter(alpha = 0.75, size=5) +
+  geom_abline(intercept = 0, slope = 1)
+
+hwplot  
 
 
 #### Make a plotmatrix of interesting info values ####
@@ -80,7 +133,7 @@ ggplot(filter(clean, info_field == "DP"), aes(x = info_numeric)) +
 
 interesting <- c("QUAL", "DP", "AC", "AF", "AB", "NS", "MQM", "MQMR")
 
-inty_wide <- clean %>%
+inty_wide <- togeth %>%
   filter(info_field %in% interesting) %>%
   unite(CHROMPOS, CHROM, POS, sep =":", remove = FALSE) %>%
   select(CHROMPOS, CHROM, POS, info_field, info_numeric) %>%
@@ -120,69 +173,4 @@ d <- ggplot(inty_wide, aes(x = QUAL)) +
 grid.arrange(a, b, c, d, ncol=2)
 
 
-####Calculate HWE####
-
-
-##Call vcftools##
-system("/usr/local/bin/vcftools --vcf inst/extdata/satro_144_filtered.vcf --hardy --max-missing 0.5 --out intermediates/satro_144_filtered2")
-
-## A function to read vcf hardy output and put it into usable long format ##
-long_hardy <- function(file) {
-  x <- read.table(file, sep ="\t", header = TRUE, stringsAsFactors = FALSE) %>%
-    tbl_df %>%
-    separate(OBS.HOM1.HET.HOM2., c("obs_Hom1", "obs_Het", "obs_Hom2"), sep ="/") %>%
-    separate(E.HOM1.HET.HOM2., c("exp_Hom1", "exp_Het", "exp_Hom2"), sep ="/")
-  
-  # now put it into long format
-  obs <- x %>% select(CHR, POS, starts_with("obs_")) %>%
-    gather(., obs_var, obs_cnt, starts_with("obs_")) %>%
-    mutate(geno = str_replace(obs_var, "^obs_", "")) %>%
-    mutate(obs_cnt = as.numeric(obs_cnt)) %>%
-    select(-obs_var)
-  
-  # now add the total number of observed individuals in there
-  ntot <- obs %>% group_by(CHR, POS) %>% summarise(nindiv = sum(obs_cnt))
-  
-  exp <- x %>% select(CHR, POS, starts_with("exp_")) %>%
-    gather(., exp_var, exp_cnt, starts_with("exp_")) %>%
-    mutate(geno = str_replace(exp_var, "^exp_", "")) %>%
-    mutate(exp_cnt = as.numeric(exp_cnt)) %>%
-    select(-exp_var)
-  
-  
-  cnts <- inner_join(obs, exp) %>%
-    mutate(geno = factor(geno, levels = c("Hom1", "Het", "Hom2"))) %>%
-    inner_join(., ntot)
-  
-  list(cnts = cnts, p_etc = inner_join(x, ntot))
-  
-}
-
-hwe <- long_hardy("intermediates/satro_144_filtered2.hwe")
-
-# Let's see how close we are to equilibrium overall
-hwplot <- ggplot(hwe$cnts, aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
-  geom_jitter(alpha = 0.75, size=5) +
-  geom_abline(intercept = 0, slope = 1)
-
-hwplot  
-
-##Call plink##
-# It appears that vcftools has a bug that prevents HWE being calculated for loci with any missing data
-# vcftools also strips out triallelic snps - fortunately there are only three
-
-system("/usr/local/bin/vcftools --vcf inst/extdata/")
-system("/usr/local/bin/plink --noweb --file intermedaiates/satro_144 --hardy")
-
-hwplink <- read.table(file="intermediates/plink.hwe", stringsAsFactors=F, header=T, sep="") %>% 
-  tbl_df() %>% 
-  select(-CHR) %>%
-  filter(., TEST=="ALL") %>%
-  mutate(status = ifelse(P < 0.0001, "toss", "keep"))
-
-hwplplot <- ggplot(hwplink, aes(x = E.HET., y = O.HET., colour = status)) +
-  geom_jitter(alpha = 0.75, size=5) +
-  geom_abline(intercept = 0, slope = 1)
-
-hwplplot  
 
