@@ -28,6 +28,11 @@ vcf <- read_tsv(infile, skip = header_line - 1) %>%
   tbl_df
 names(vcf)[1] <- "CHROM"
 
+# we will want to include the REF/ALT alleles in the final table to exclude homopolymer runs
+
+refalt <- vcf %>% select(CHROM, POS, REF, ALT) %>%
+  unite(CHROMPOS, CHROM, POS, sep =":")
+  
 
 #### process the INFO fields ####
 
@@ -117,28 +122,37 @@ long_hardy <- function(file) {
 
 hwe <- long_hardy(paste(outfile, 'hwe', sep="."))
 
-# Let's see how close we are to equilibrium overall
+# How close are we to equilibrium overall
 # Adding a HW p-value filter
 pval <- 0.00001
+pval <- 1
 
-hwplot <- ggplot(filter(hwe$cnts, P_HWE<pval), aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
+hwplot <- ggplot(filter(hwe$cnts, P_HWE>pval), aes(x = exp_cnt, y = obs_cnt, colour = geno)) +
   geom_jitter(alpha = 0.75, size=5) +
   geom_abline(intercept = 0, slope = 1)
 
-hwplot  
+hwplot 
+
+# And grab the fields of interest for inclusion in inty_wide
+hwbung <- hwe$p_etc %>% select(CHR, POS, P_HWE) %>%
+  unite(CHROMPOS, CHR, POS, sep =":") 
 
 
 #### Make a plotmatrix of interesting info values ####
 
 
-interesting <- c("QUAL", "DP", "AC", "AF", "AB", "NS", "MQM", "MQMR")
+interesting <- c("QUAL", "DP", "AF", "AB", "NS", "MQM")
 
 inty_wide <- togeth %>%
   filter(info_field %in% interesting) %>%
   unite(CHROMPOS, CHROM, POS, sep =":", remove = FALSE) %>%
-  select(CHROMPOS, CHROM, POS, info_field, info_numeric) %>%
+  select(CHROMPOS, CHROM, POS, TYPE, info_field, info_numeric) %>%
   spread(info_field, info_numeric) %>%
-  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 20, "keep", "toss"))
+  inner_join(., hwbung) %>%
+  inner_join(., refalt) %>%
+  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 20 & P_HWE > 0.00001, "keep", "toss"))
+
+write.csv(inty_wide, file="output/satro_144_filter_values.csv")
 
 pdf(file = "output/satro_144_vcf_matrix.pdf", width = 24, height = 20)
 ggpairs(inty_wide, 
@@ -147,14 +161,25 @@ ggpairs(inty_wide,
         color = "status")
 dev.off()
 
-# quickly summarize number of snps and number of loci
+# quick summary 
+# number of snps 
 inty_wide %>% filter(status == "keep") %>%
   nrow()
 
+# number of loci
 inty_wide %>% filter(status == "keep") %>%
   select(CHROM) %>%
   unique() %>%
   nrow()
+
+# snps per locus
+spl <- inty_wide %>% filter(status == "keep") %>%
+  group_by(CHROM) %>%
+  summarise(count = n()) %>%
+  ggplot(., aes(x = CHROM, y = count)) + geom_bar(stat="identity")
+
+spl
+
 
 # Can also look at the before- and after-filtering of a single variable 
 require(gridExtra)
