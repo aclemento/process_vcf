@@ -3,7 +3,7 @@ install.packages("dplyr")
 install.packages("ggplot2")
 install.packages("RColorBrewer")
 library(stringr)
-library(readr)
+library(readr)q
 library(dplyr)
 library(ggplot2)
 library(tidyr)
@@ -11,20 +11,20 @@ library(RColorBrewer)
 
 # We have 96 files with idxstats that we need to read in, add an individual identifier column and then plot (raster?)
 
-setwd("~/Genetics_Lab_Data/rproj/process_vcf/inst/idxdata/")
+setwd("~/Genetics_Lab_Data/GTseq/satrovirens020116/map2/idx_stats/")
 
 # read in the file list that I created with "ls -1 s* > files.txt"
 files <- read.table("files.txt", stringsAsFactors=F)
 
 # read in the data files each to a list component, grab the first part of the file name and name the list components
 #stats <- lapply(files[,1], function(x) read.table(x, nrows=95))
-stats <- lapply(files[,1], function(x) read.table(x, nrows=95, stringsAsFactors=F))
+stats <- lapply(files[,1], function(x) read.table(x, nrows=96, stringsAsFactors=F))
 temp <- matrix(unlist(strsplit(files[,1], "_")), ncol=2, byrow=T)
 names(stats) <- temp[,1]
 
 # need to add a column to each list component that is the list name
 idx <- list()
-for (i in temp[,1]) {y <- rep(names(stats[i]),95)
+for (i in temp[,1]) {y <- rep(names(stats[i]),96)
                              idx[[i]]<- cbind(stats[[i]], y)}
 
 # now merge into a single tidy data frame

@@ -19,7 +19,7 @@ setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 
 
 # Create a variable that is the relative path to infile 
-infile <- "inst/extdata/satro_144_for_filtering.vcf"
+infile <- "inst/extdata/sebastes_snps_only.recode.vcf"
 
 # find header line of vcf file then read it in
 x <- readLines(infile, n = 1000)
@@ -79,8 +79,8 @@ g
 ggsave(g, filename = "histo_matrix.pdf", width = 20, height = 18)
 
 # plot a single field - xlim and binwidth need to be adjusted depending on the field
-ggplot(filter(togeth, info_field == "AB"), aes(x = info_numeric)) +
-  geom_histogram(binwidth = 0.01, colour = "blue") + xlim(0,1)
+ggplot(filter(togeth, info_field == "DP"), aes(x = info_numeric)) +
+  geom_histogram(binwidth=500, colour = "blue") 
 
 ####Calculate HWE####
 
@@ -163,17 +163,17 @@ dev.off()
 
 # quick summary 
 # number of snps 
-inty_wide %>% filter(status == "keep") %>%
+inty_wide %>% filter(status == "keep" & TYPE == "snp") %>%
   nrow()
 
 # number of loci
-inty_wide %>% filter(status == "keep") %>%
+inty_wide %>% filter(status == "keep" & TYPE == "snp") %>%
   select(CHROM) %>%
   unique() %>%
   nrow()
 
 # snps per locus
-spl <- inty_wide %>% filter(status == "keep") %>%
+spl <- inty_wide %>% filter(status == "keep" & TYPE == "snp") %>%
   group_by(CHROM) %>%
   summarise(count = n()) %>%
   ggplot(., aes(x = CHROM, y = count)) + geom_bar(stat="identity")
