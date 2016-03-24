@@ -15,11 +15,8 @@ setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 # Decompress vcf file for reading into R
 #system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
 
-# Filter vcf with vcftools
-
-
 # Create a variable that is the relative path to infile 
-infile <- "inst/extdata/sebastes_snps_only.recode.vcf"
+infile <- "inst/extdata/satro144_p1_for_filtering.vcf"
 
 # find header line of vcf file then read it in
 x <- readLines(infile, n = 1000)
@@ -141,7 +138,7 @@ hwbung <- hwe$p_etc %>% select(CHR, POS, P_HWE) %>%
 #### Make a plotmatrix of interesting info values ####
 
 
-interesting <- c("QUAL", "DP", "AF", "AB", "NS", "MQM")
+interesting <- c("QUAL", "DP", "AF", "AB", "NS", "MQM", "MQMR", "P_HWE")
 
 inty_wide <- togeth %>%
   filter(info_field %in% interesting) %>%
@@ -150,7 +147,7 @@ inty_wide <- togeth %>%
   spread(info_field, info_numeric) %>%
   inner_join(., hwbung) %>%
   inner_join(., refalt) %>%
-  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 20 & P_HWE > 0.00001, "keep", "toss"))
+  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 50 & MQMR > 50 & P_HWE > 0.00001, "keep", "toss"))
 
 write.csv(inty_wide, file="output/satro_144_filter_values.csv")
 
@@ -192,10 +189,20 @@ b <- ggplot(inty_wide, aes(x = AB)) +
 c <- ggplot(inty_wide, aes(x = DP)) +
   geom_density( fill = "blue", alpha = 0.3) +
   geom_density(data = inty_wide %>% filter(status == "keep"), alpha = 0.3, fill = "red") 
-d <- ggplot(inty_wide, aes(x = QUAL)) +
+d <- ggplot(inty_wide, aes(x = P_HWE)) +
   geom_density( fill = "blue", alpha = 0.3) +
   geom_density(data = inty_wide %>% filter(status == "keep"), alpha = 0.3, fill = "red") 
 grid.arrange(a, b, c, d, ncol=2)
 
 
+#### Construct the filtered vcf ####
 
+
+# Remember that we have the first thousand lines of the original vcf as variable, x, and the header_line
+# And we have the original vcf data in variable, vcf, it just needs to be filtered
+
+keepers <- inty_wide %>% filter(status == "keep" & TYPE == "snp") %>% select(CHROMPOS)
+
+vcf2 <- vcf %>% unite(CHROMPOS, CHROM, POS, sep=":", remove=F) %>%
+  filter(CHROMPOS %in% keepers[[1]]) %>%
+  select(-CHROMPOS)
