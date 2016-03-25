@@ -201,8 +201,11 @@ grid.arrange(a, b, c, d, ncol=2)
 # Remember that we have the first thousand lines of the original vcf as variable, x, and the header_line
 # And we have the original vcf data in variable, vcf, it just needs to be filtered
 
-keepers <- inty_wide %>% filter(status == "keep" & TYPE == "snp") %>% select(CHROMPOS)
+keepers <- inty_wide %>% filter(status == "keep" & TYPE == "snp") %>% select(CHROMPOS) %>% unlist()
 
 vcf2 <- vcf %>% unite(CHROMPOS, CHROM, POS, sep=":", remove=F) %>%
-  filter(CHROMPOS %in% keepers[[1]]) %>%
+  filter(CHROMPOS %in% keepers) %>%
   select(-CHROMPOS)
+
+cat(x[1:header_line], sep="\n", file = "output/satro144_p1_hapbasis.vcf")
+write.table(vcf2, row.names=F, col.names=F, quote=F, sep="\t", file = "output/satro144_p1_hapbasis.vcf", append=T)
