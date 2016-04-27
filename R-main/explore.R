@@ -16,7 +16,7 @@ setwd("~/Genetics_Lab_Data/rproj/process_vcf")
 #system('/bin/zcat inst/extdata/smar_freebayes.vcf.gz > inst/extdata/smar_freebayes.vcf')
 
 # Create a variable that is the relative path to infile 
-infile <- "inst/extdata/satro144_p1_for_filtering.vcf"
+infile <- "inst/extdata/satro_96_panel2_run2_for_filtering.vcf"
 
 # find header line of vcf file then read it in
 x <- readLines(infile, n = 1000)
@@ -83,7 +83,7 @@ ggplot(filter(togeth, info_field == "DP"), aes(x = info_numeric)) +
 
 ##Call vcftools##
 
-outfile <- "intermediates/satro_144"
+outfile <- "intermediates/satro_96_p2"
 system(paste('/usr/local/bin/vcftools --vcf', infile, '--hardy --out', outfile))
 
 ## A function to read vcf hardy output and put it into usable long format ##
@@ -147,7 +147,7 @@ inty_wide <- togeth %>%
   spread(info_field, info_numeric) %>%
   inner_join(., hwbung) %>%
   inner_join(., refalt) %>%
-  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 50 & MQMR > 50 & P_HWE > 0.00001, "keep", "toss"))
+  mutate(status = ifelse(QUAL > 20 & AF > 0.02 & AF < 0.98 & AB > 0.1 & AB < 0.9 & MQM > 20 & MQMR > 20 & P_HWE > 0.00001, "keep", "toss"))
 
 write.csv(inty_wide, file="output/satro_144_filter_values.csv")
 
